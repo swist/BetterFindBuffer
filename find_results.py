@@ -1,6 +1,9 @@
 import sublime
 import sublime_plugin
-import re, os, shutil
+import re
+import os
+import shutil
+
 
 class FindInFilesOpenFileCommand(sublime_plugin.TextCommand):
     def run(self, edit):
@@ -45,7 +48,10 @@ class FindInFilesOpenAllFilesCommand(sublime_plugin.TextCommand):
     def get_files(self):
         view = self.view
         content = view.substr(sublime.Region(0, view.size()))
-        return [match.group(1) for match in re.finditer(r"^([^\s].+):$", content, re.MULTILINE)]
+        return [
+            match.group(1)
+            for match in re.finditer(r"^([^\s].+):$", content, re.MULTILINE)
+        ]
 
 
 class FindInFilesJumpFileCommand(sublime_plugin.TextCommand):
@@ -71,14 +77,22 @@ class FindInFilesJumpCommand(sublime_plugin.TextCommand):
         return next((m for m in matches if caret.begin() < m.begin()), default)
 
     def filter_matches(self, caret, matches):
-        footers = self.view.find_by_selector('footer.find-in-files')
-        lower_bound = next((f.end() for f in reversed(footers) if f.end() < caret.begin()), 0)
-        upper_bound = next((f.end() for f in footers if f.end() > caret.begin()), self.view.size())
-        return [m for m in matches if m.begin() > lower_bound and m.begin() < upper_bound]
+        footers = self.view.find_by_selector("footer.find-in-files")
+        lower_bound = next(
+            (f.end() for f in reversed(footers) if f.end() < caret.begin()), 0
+        )
+        upper_bound = next(
+            (f.end() for f in footers if f.end() > caret.begin()), self.view.size()
+        )
+        return [
+            m for m in matches if m.begin() > lower_bound and m.begin() < upper_bound
+        ]
 
     def find_prev_match(self, caret, matches, cycle):
         default = matches[-1] if cycle and len(matches) else None
-        return next((m for m in reversed(matches) if caret.begin() > m.begin()), default)
+        return next(
+            (m for m in reversed(matches) if caret.begin() > m.begin()), default
+        )
 
     def goto_match(self, match):
         self.view.sel().clear()
@@ -89,7 +103,7 @@ class FindInFilesJumpCommand(sublime_plugin.TextCommand):
 
 class FindInFilesJumpFileCommand(FindInFilesJumpCommand):
     def find_matches(self):
-        return self.view.find_by_selector('entity.name.filename.find-in-files')
+        return self.view.find_by_selector("entity.name.filename.find-in-files")
 
     def goto_match(self, match):
         v = self.view
@@ -101,7 +115,7 @@ class FindInFilesJumpFileCommand(FindInFilesJumpCommand):
 
 class FindInFilesJumpMatchCommand(FindInFilesJumpCommand):
     def find_matches(self):
-        return self.view.get_regions('match')
+        return self.view.get_regions("match")
 
     def goto_match(self, match):
         v = self.view
@@ -121,7 +135,7 @@ class BfbClearFilePathCommand(sublime_plugin.TextCommand):
             path, folder_name = os.path.split(folder)
             regions = self.view.find_all(path)
             for r in reversed(regions):
-                self.view.fold(sublime.Region(r.a, r.b+1))
+                self.view.fold(sublime.Region(r.a, r.b + 1))
 
 
 class BfbTogglePopupHelpCommand(sublime_plugin.TextCommand):
@@ -140,8 +154,8 @@ class BfbFoldAndMoveToNextFileCommand(sublime_plugin.TextCommand):
         sublime.set_timeout_async(self.move_to_next, 0)
 
     def move_to_next(self):
-        self.view.run_command('find_in_files_jump_file')
-        self.view.run_command('find_in_files_jump_match')
+        self.view.run_command("find_in_files_jump_file")
+        self.view.run_command("find_in_files_jump_match")
 
     def get_begin(self):
         view = self.view
@@ -151,7 +165,7 @@ class BfbFoldAndMoveToNextFileCommand(sublime_plugin.TextCommand):
                 line_text = view.substr(line)
                 match = re.match(r"\S(.+):$", line_text)
                 if match:
-                    return(line)
+                    return line
                 line = view.line(line.begin() - 1)
         return None
 
@@ -162,40 +176,27 @@ class BfbFoldAndMoveToNextFileCommand(sublime_plugin.TextCommand):
             while line.end() <= view.size():
                 line_text = view.substr(line)
                 if len(line_text) == 0:
-                    return(line)
+                    return line
                 line = view.line(line.end() + 1)
         return None
 
 
 class FindInFilesSetReadOnly(sublime_plugin.EventListener):
     def is_find_results(self, view):
-        syntax = view.settings().get('syntax', '')
+        syntax = view.settings().get("syntax", "")
         if syntax:
             return syntax.endswith("Find Results.hidden-tmLanguage")
 
     def on_activated_async(self, view):
         if self.is_find_results(view):
-            settings = sublime.load_settings('BetterFindBuffer.sublime-settings')
-            if settings.get('fold_path_prefix', True):
-                view.run_command('bfb_clear_file_path')
-            view.set_read_only(settings.get('readonly', True))
+            settings = sublime.load_settings("BetterFindBuffer.sublime-settings")
+            if settings.get("fold_path_prefix", True):
+                view.run_command("bfb_clear_file_path")
+            view.set_read_only(settings.get("readonly", True))
 
     def on_deactivated_async(self, view):
         if self.is_find_results(view):
             view.set_read_only(False)
-
-
-# Some plugins like **Color Highlighter** are forcing their color-scheme to the activated view
-# Although, it's something that should be fixed on their side, in the meantime, it's safe to force
-# the color shceme on `on_activated_async` event.
-class BFBForceColorSchemeCommand(sublime_plugin.EventListener):
-    def on_activated_async(self, view):
-        syntax = view.settings().get('syntax')
-        if syntax and (syntax.endswith("Find Results.hidden-tmLanguage")):
-            settings = sublime.load_settings('Find Results.sublime-settings')
-            color_scheme = settings.get('color_scheme')
-            if color_scheme:
-                view.settings().set('color_scheme', color_scheme)
 
 
 def plugin_loaded():
@@ -204,8 +205,12 @@ def plugin_loaded():
     if not os.path.exists(default_package_path):
         os.makedirs(default_package_path)
 
-    source_path = os.path.join(sublime.packages_path(), "BetterFindBuffer", "Find Results.hidden-tmLanguage")
-    destination_path = os.path.join(default_package_path, "Find Results.hidden-tmLanguage")
+    source_path = os.path.join(
+        sublime.packages_path(), "BetterFindBuffer", "Find Results.hidden-tmLanguage"
+    )
+    destination_path = os.path.join(
+        default_package_path, "Find Results.hidden-tmLanguage"
+    )
 
     if os.path.isfile(destination_path):
         os.unlink(destination_path)
@@ -215,6 +220,8 @@ def plugin_loaded():
 
 def plugin_unloaded():
     default_package_path = os.path.join(sublime.packages_path(), "Default")
-    destination_path = os.path.join(default_package_path, "Find Results.hidden-tmLanguage")
+    destination_path = os.path.join(
+        default_package_path, "Find Results.hidden-tmLanguage"
+    )
     if os.path.exists(default_package_path) and os.path.isfile(destination_path):
         os.remove(destination_path)
